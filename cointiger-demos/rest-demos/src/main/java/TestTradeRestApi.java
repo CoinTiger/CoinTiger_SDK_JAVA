@@ -12,10 +12,10 @@ import org.slf4j.LoggerFactory;
 public class TestTradeRestApi {
     private static final Logger log = LoggerFactory.getLogger(TestTradeRestApi.class);
 
-    private static final String ROOT_API= "https://www.cointiger.com/api/market";
+    private static final String ROOT_API= "https://api.cointiger.com/exchange/trading/api/market";
 
     //修改为你的api_key
-    private static final String API_KEY_VALUE = "100310001";
+    private static final String API_KEY_VALUE = "";
 
     //修改为你要做市的币对 格式如 tchbtc,ltcbtc,ethbitcny
     private static final String SYMBOL = "btcbitcny";
