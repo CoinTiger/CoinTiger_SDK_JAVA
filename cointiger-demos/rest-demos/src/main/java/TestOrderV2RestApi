@@ -1,0 +1,315 @@
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import org.apache.commons.codec.binary.Hex;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+
+/**
+ * @author yuboliu
+ * @Description: order v2 版本 rest demo
+ * @date 2018/5/318:57
+ */
+public class TestOrderV2RestApi {
+    private static final Logger log = LoggerFactory.getLogger(TestOrderV2RestApi.class);
+
+    //修改为你的api_key
+    private static final String API_KEY_VALUE = "c9a97adf-7909-444a-bf9e-1471210c4780";
+    //修改为你的api_secret
+    private static final String API_SECRET = "OTQxYzQ3NTYxOWJkNzFkNmFhNDcyMjYxZmJmZDE4ZTU0ZDMyNzVhYWE5MjFmNzU5ZWZhNWRjN2Y2YTMyMmFiMw11";
+    //修改为你要做市的币对 格式如 tchbtc,ltcbtc,ethbitcny
+    private static final String SYMBOL = "ethbtc";
+
+    //以下几项不需要修改
+    private static final String ROOT_API = "https://www.cointiger.com/exchange/trading/api/v2";
+    private static final String API_KEY = "api_key";
+
+
+    /**
+     *  查询系统当前时间
+     */
+    @Test
+    public void timestamp() {
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        stringBuilder.append("/timestamp");
+
+        String result = httpClientUtils.doGet(stringBuilder.toString());
+        JSONObject jsonObject = JSON.parseObject(result);
+        System.out.println(jsonObject.toJSONString());
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+    }
+
+
+    /**
+     *  查询cointiger站支持的所有币种
+     */
+    @Test
+    public void currencys() {
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        stringBuilder.append("/currencys");
+
+        String result = httpClientUtils.doGet(stringBuilder.toString());
+        JSONObject jsonObject = JSON.parseObject(result);
+        System.out.println(jsonObject.toJSONString());
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+    }
+
+    /**
+     * 查询当前委托、历史委托
+     */
+    @Test
+    public void testOrders() {
+        String time = System.currentTimeMillis() + "";
+        Map<String, String> paramMap = new HashMap<>();
+        paramMap.put("symbol", SYMBOL);
+        paramMap.put("types", "buy-limit,sell-limit");
+        paramMap.put("direct", "next"); // prev 向前，next 向后
+        paramMap.put("from", "4887374");
+        paramMap.put("states", "new");//new ：新订单,  part_filled ：部分成交,  filled ：完全成交,  canceled ：已撤销，expired：异常订单
+        paramMap.put("size", "10");
+        paramMap.put("time", time);
+        String sign = getSign(paramMap);
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        stringBuilder.append("/order/orders?")
+                .append(API_KEY).append("=").append(API_KEY_VALUE).append("&")
+                .append("sign=").append(sign).append("&")
+                .append("symbol=").append("xembitcny").append("&")
+                .append("types=").append("buy-limit,sell-limit").append("&")
+                .append("direct=").append("next").append("&")
+                .append("from=").append("4887374").append("&")
+                .append("states=").append("new").append("&")
+                .append("size=").append("10").append("&")
+                .append("time=").append(time);
+        System.out.println(stringBuilder.toString());
+        String result = httpClientUtils.doGet(stringBuilder.toString());
+        JSONObject jsonObject = JSON.parseObject(result);
+        System.out.println(jsonObject.toJSONString());
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+    }
+
+    /**
+     * 查询当前成交、历史成交
+     */
+    @Test
+    public void testOrderTrade() {
+        String time = System.currentTimeMillis() + "";
+        Map<String, String> paramMap = new HashMap<>();
+        paramMap.put("symbol", SYMBOL);
+        paramMap.put("start-date", "2018-05-11");
+        paramMap.put("end-date", "2018-05-14");
+        paramMap.put("direct", "next");// prev 向前，next 向后
+//        paramMap.put("from", "1130076");
+        paramMap.put("size", "10");
+        paramMap.put("time", time);
+        String sign = getSign(paramMap);
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        stringBuilder.append("/order/match_results?")
+                .append(API_KEY).append("=").append(API_KEY_VALUE).append("&")
+                .append("sign=").append(sign).append("&")
+                .append("symbol=").append("ethbtc").append("&")
+                .append("start-date=").append("2018-05-11").append("&")
+                .append("end-date=").append("2018-05-14").append("&")
+                .append("direct=").append("next").append("&")
+//                .append("from=").append("1130076").append("&")
+                .append("size=").append("10").append("&")
+                .append("time=").append(time);
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        System.out.println(stringBuilder.toString());
+        String result = httpClientUtils.doGet(stringBuilder.toString());
+        System.out.println(result);
+        JSONObject jsonObject = JSON.parseObject(result);
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+    }
+
+
+    /**
+     * 下单接口
+     * 返回数据格式
+     * {"code":"0","msg":"suc","data":{"order_id":918}} order_id为订单号
+     */
+    @Test
+    public void testOrderCreateNew() {
+        String time = System.currentTimeMillis() + "";
+        Map<String, String> paramMap = new HashMap<>();
+        //币对code ，格式如 tchbtc,ltcbtc,ethbitcny
+        paramMap.put("symbol", SYMBOL);
+        //下单价格
+        paramMap.put("price", "0.07924584");
+        //下单数量
+        paramMap.put("volume", "10");
+        //买卖方向 买BUY  卖SELL
+        paramMap.put("side", "BUY");
+        paramMap.put("type", "1");
+        //限价交易为1
+        paramMap.put("time", time);
+        String sign = getSign(paramMap);
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        stringBuilder.append("/order?")
+                .append(API_KEY).append("=").append(API_KEY_VALUE).append("&")
+                .append("time=").append(time).append("&")
+                .append("sign=").append(sign);
+
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        System.out.println(stringBuilder.toString());
+        String result = httpClientUtils.doAPIPost(stringBuilder.toString(), paramMap);
+        System.out.println(result);
+        JSONObject jsonObject = JSON.parseObject(result);
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+        jsonObject = jsonObject.getJSONObject("data");
+        System.out.println("result=" + jsonObject.toJSONString());
+
+    }
+
+    /**
+     * 订单详情
+     */
+    @Test
+    public void testOrderDetails(){
+        String time = System.currentTimeMillis() + "";
+        Map<String, String> paramMap = new HashMap<>();
+        //币对code ，格式如 tchbtc,ltcbtc,ethbitcny
+        paramMap.put("symbol", SYMBOL);
+        paramMap.put("order_id", "155");
+        paramMap.put("time", time);
+        String sign = getSign(paramMap);
+
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        stringBuilder.append("/order/details?")
+                .append(API_KEY).append("=").append(API_KEY_VALUE).append("&")
+                .append("time=").append(time).append("&")
+                .append("order_id=").append("155").append("&")
+                .append("symbol=").append("xembitcny").append("&")
+                .append("sign=").append(sign);
+
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        System.out.println(stringBuilder.toString());
+        String result = httpClientUtils.doGet(stringBuilder.toString());
+        System.out.println(result);
+        JSONObject jsonObject = JSON.parseObject(result);
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+        jsonObject = jsonObject.getJSONObject("data");
+    }
+
+    /**
+     * 订单成交明细
+     */
+    @Test
+    public void testOrderMatchResults(){
+        String time = System.currentTimeMillis() + "";
+        Map<String, String> paramMap = new HashMap<>();
+        //币对code ，格式如 tchbtc,ltcbtc,ethbitcny
+        paramMap.put("symbol", SYMBOL);
+        paramMap.put("order_id", "155");
+        paramMap.put("time", time);
+        String sign = getSign(paramMap);
+
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        stringBuilder.append("/order/make_detail?")
+                .append(API_KEY).append("=").append(API_KEY_VALUE).append("&")
+                .append("time=").append(time).append("&")
+                .append("order_id=").append("155").append("&")
+                .append("symbol=").append("xembitcny").append("&")
+                .append("sign=").append(sign);
+
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        System.out.println(stringBuilder.toString());
+        String result = httpClientUtils.doGet(stringBuilder.toString());
+        System.out.println(result);
+        JSONObject jsonObject = JSON.parseObject(result);
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+    }
+
+    /**
+     * 批量撤单
+     */
+    @Test
+    public void testBatchCancel() {
+        String time = System.currentTimeMillis() + "";
+        Map<String, String> paramMap = new HashMap<>();
+        //order_id订单号，下单接口成功时会返回，也可以通过查询订单的接口获得
+        JSONObject jsonObject1 = new JSONObject();
+        // 每个币对对应的订单
+        List<String> orderIdsBtc = new ArrayList<>();
+        orderIdsBtc.add("156");
+        orderIdsBtc.add("157");
+        jsonObject1.put("xembitcny",orderIdsBtc);
+
+        List<String> orderIdsEth = new ArrayList<>();
+        orderIdsEth.add("7624596");
+        orderIdsEth.add("7624597");
+        jsonObject1.put("ethbtc",orderIdsEth);
+
+        paramMap.put("orderIdList", jsonObject1.toString());
+        paramMap.put("time", time);
+        String sign = getSign(paramMap);
+        StringBuilder stringBuilder = new StringBuilder(ROOT_API);
+        stringBuilder.append("/order/batch_cancel?")
+                .append(API_KEY).append("=").append(API_KEY_VALUE).append("&")
+                .append("time=").append(time).append("&")
+                .append("sign=").append(sign);
+
+        HttpClientUtils httpClientUtils = HttpClientUtils.getInstance();
+        String result = httpClientUtils.doAPIPost(stringBuilder.toString(), paramMap);
+        System.out.println(result);
+        JSONObject jsonObject = JSON.parseObject(result);
+        if (Integer.parseInt(jsonObject.getString("code")) > 0) {
+            System.out.println("error:" + result);
+        }
+        jsonObject = jsonObject.getJSONObject("data");
+    }
+
+
+    /**
+     * 签名方法
+     * @param params
+     * @return
+     */
+    public static String getSign(Map<String, String> params) {
+        Map<String, String> resultMap = new TreeMap<>(params);
+        StringBuilder basestring = new StringBuilder();
+        for (String key : resultMap.keySet()) {
+            if (key.equals("sign")) {//去掉签名字段
+                continue;
+            }
+            System.out.println(key + ":" + resultMap.get(key));
+            basestring.append(key).append(resultMap.get(key));
+        }
+        basestring.append(API_SECRET);
+        Mac mac;
+        log.info("basestring:"+basestring.toString());
+        try {
+            mac = Mac.getInstance("HmacSHA512");
+            mac.init(new SecretKeySpec(API_SECRET.getBytes(), "HmacSHA512"));
+            String signature = new String(Hex.encodeHex(mac.doFinal(basestring.toString().getBytes())));
+            System.out.println("========================================signature: " + signature);
+            return signature;
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            log.error(e.getMessage(), e);
+        }
+
+        return "";
+    }
+}
