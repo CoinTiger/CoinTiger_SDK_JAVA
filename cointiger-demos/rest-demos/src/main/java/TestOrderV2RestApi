@@ -27,7 +27,7 @@ public class TestOrderV2RestApi {
     private static final String SYMBOL = "ethbtc";
 
     //以下几项不需要修改
-    private static final String ROOT_API = "https://www.cointiger.com/exchange/trading/api/v2";
+    private static final String ROOT_API = "https://api.cointiger.pro/exchange/trading/api/v2";
     private static final String API_KEY = "api_key";
 
 
